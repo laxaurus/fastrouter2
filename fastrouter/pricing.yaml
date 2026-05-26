@@ -1,0 +1,41 @@
+# FastRouter Provider Pricing (USD per 1K tokens)
+# Source of truth for analytics cost tracking.
+# BYOK model — prices shown for cost estimation only, not billing.
+
+version: "1.0"
+
+models:
+  deepseek-chat:
+    input_price_per_1k: 0.00014
+    output_price_per_1k: 0.00028
+    provider: deepseek
+    description: "DeepSeek-V3 chat model"
+
+  deepseek-reasoner:
+    input_price_per_1k: 0.00055
+    output_price_per_1k: 0.00219
+    provider: deepseek
+    description: "DeepSeek-R1 reasoning model"
+
+  qwen-plus:
+    input_price_per_1k: 0.00080
+    output_price_per_1k: 0.00200
+    provider: qwen
+    description: "Qwen balanced model"
+
+  qwen-max:
+    input_price_per_1k: 0.00280
+    output_price_per_1k: 0.00840
+    provider: qwen
+    description: "Qwen maximum capability"
+
+  qwen-turbo:
+    input_price_per_1k: 0.00030
+    output_price_per_1k: 0.00060
+    provider: qwen
+    description: "Qwen fast/cheap model"
+
+metadata:
+  currency: USD
+  unit: per_1k_tokens
+  last_updated: "2025-01-20"

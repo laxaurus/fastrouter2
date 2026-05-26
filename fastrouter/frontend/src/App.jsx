@@ -1,0 +1,59 @@
+import { Routes, Route, Navigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import Layout from "./components/Layout";
+import Dashboard from "./pages/Dashboard";
+import ApiKeys from "./pages/ApiKeys";
+import ProviderKeys from "./pages/ProviderKeys";
+import Billing from "./pages/Billing";
+import Settings from "./pages/Settings";
+import Docs from "./pages/Docs";
+import Login from "./pages/Login";
+import { api } from "./lib/api";
+
+function ProtectedRoute({ children }) {
+  const token = localStorage.getItem("access_token");
+  if (!token) return <Navigate to="/login" />;
+  return children;
+}
+
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    if (token) {
+      api.me()
+        .then((u) => setUser(u))
+        .catch(() => localStorage.clear())
+        .finally(() => setLoading(false));
+    } else {
+      setLoading(false);
+    }
+  }, []);
+
+  if (loading) return <div style={{ padding: 40 }}>Loading...</div>;
+
+  return (
+    <Routes>
+      <Route path="/login" element={<Login onLogin={setUser} />} />
+      <Route
+        path="/*"
+        element={
+          <ProtectedRoute>
+            <Layout user={user}>
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/keys" element={<ApiKeys />} />
+                <Route path="/providers" element={<ProviderKeys />} />
+                <Route path="/billing" element={<Billing user={user} />} />
+                <Route path="/settings" element={<Settings user={user} />} />
+                <Route path="/docs" element={<Docs />} />
+              </Routes>
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+    </Routes>
+  );
+}

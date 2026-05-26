@@ -1,0 +1,30 @@
+# Core
+fastapi==0.110.0
+uvicorn[standard]==0.27.0
+pydantic[email]==2.5.0
+pydantic-settings==2.1.0
+python-multipart==0.0.6
+
+# Database
+asyncpg==0.29.0
+sqlalchemy[asyncio]==2.0.25
+alembic==1.13.0
+
+# Redis
+redis==5.0.1
+
+# HTTP
+httpx==0.26.0
+
+# Auth
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.2.1
+python-dotenv==1.0.0
+cryptography==42.0.0
+
+# Billing
+stripe==7.4.0
+
+# Utilities
+orjson==3.9.0
