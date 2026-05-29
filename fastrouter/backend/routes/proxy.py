@@ -75,8 +75,8 @@ async def chat_completions(
     model = body.get("model", "deepseek-chat")
     messages = body.get("messages", [])
     stream = body.get("stream", False)
-    temperature = body.get("temperature", 0.7)
-    max_tokens = body.get("max_tokens", 4096)
+    temperature = body.get("temperature")
+    max_tokens = body.get("max_tokens")
     stop = body.get("stop")
 
     # Check subscription or free tier

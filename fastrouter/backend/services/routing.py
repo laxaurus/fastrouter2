@@ -100,8 +100,8 @@ class LiteLLMRouter:
         messages: list[dict],
         user_id: str,
         db: AsyncSession,
-        temperature: float = 0.7,
-        max_tokens: int = 4096,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
         stream: bool = False,
         **kwargs,
     ) -> dict:
@@ -114,15 +114,19 @@ class LiteLLMRouter:
             )
         decrypted_key, lite_key = keys
 
-        payload = {
+        payload: dict = {
             "model": model,
             "messages": messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
             "stream": stream,
             "api_key": decrypted_key,
-            **{k: v for k, v in kwargs.items() if v is not None},
         }
+        if temperature is not None:
+            payload["temperature"] = temperature
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+        for k, v in kwargs.items():
+            if v is not None:
+                payload[k] = v
 
         headers = {
             "Authorization": f"Bearer {lite_key or settings.litellm_master_key}",
@@ -177,8 +181,8 @@ class LiteLLMRouter:
         messages: list[dict],
         user_id: str,
         db: AsyncSession,
-        temperature: float = 0.7,
-        max_tokens: int = 4096,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
         **kwargs,
     ):
         provider = self.resolve_provider(model)
@@ -188,15 +192,19 @@ class LiteLLMRouter:
             raise ValueError(f"No API key found for provider '{provider}'.")
         decrypted_key, lite_key = keys
 
-        payload = {
+        payload: dict = {
             "model": model,
             "messages": messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
             "stream": True,
             "api_key": decrypted_key,
-            **{k: v for k, v in kwargs.items() if v is not None},
         }
+        if temperature is not None:
+            payload["temperature"] = temperature
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+        for k, v in kwargs.items():
+            if v is not None:
+                payload[k] = v
 
         headers = {
             "Authorization": f"Bearer {lite_key or settings.litellm_master_key}",
