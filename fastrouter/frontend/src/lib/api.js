@@ -77,6 +77,7 @@ export const api = {
   analyticsOverview: () => request("/analytics/overview"),
   analyticsUsage: (days = 30) => request(`/analytics/usage?days=${days}`),
   analyticsProviders: () => request("/analytics/providers"),
+  analyticsModels: () => request("/analytics/models"),
   analyticsHealth: () => request("/analytics/health"),
 
   // Proxy
