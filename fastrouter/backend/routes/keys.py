@@ -80,6 +80,46 @@ async def create_key(
     }
 
 
+@router.get("/{key_id}", response_model=None)
+async def get_key(
+    key_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(ApiKey).where(ApiKey.id == key_id, ApiKey.user_id == user.id)
+    )
+    key = result.scalar_one_or_none()
+    if key is None:
+        raise HTTPException(status_code=404, detail="Key not found")
+
+    from backend.models.provider_key import ProviderKey
+    pk_result = await db.execute(
+        select(ProviderKey).where(ProviderKey.user_id == user.id)
+    )
+    provider_keys = pk_result.scalars().all()
+
+    return {
+        "id": str(key.id),
+        "name": key.name,
+        "key_prefix": key.key_prefix,
+        "is_active": key.is_active,
+        "last_used_at": key.last_used_at.isoformat() if key.last_used_at else None,
+        "created_at": key.created_at.isoformat() if key.created_at else "",
+        "provider_keys": [
+            {
+                "id": str(pk.id),
+                "provider": pk.provider,
+                "key_prefix": pk.key_prefix,
+                "synced": pk.lite_key is not None,
+                "is_active": pk.is_active,
+                "created_at": pk.created_at.isoformat() if pk.created_at else "",
+            }
+            for pk in provider_keys
+        ],
+    }
+
+
 @router.delete("/{key_id}", response_model=None)
 async def delete_key(
     key_id: str,

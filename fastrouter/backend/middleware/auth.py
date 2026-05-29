@@ -69,10 +69,10 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_db))
 async def _auth_api_key(api_key: str, db: AsyncSession) -> User:
     from passlib.hash import bcrypt
 
-    key_hash = bcrypt.hash(api_key)
+    key_prefix = api_key[:8]
 
     result = await db.execute(
-        select(ApiKey).where(ApiKey.is_active == True)
+        select(ApiKey).where(ApiKey.is_active == True, ApiKey.key_prefix == key_prefix)
     )
     for key in result.scalars().all():
         if bcrypt.verify(api_key, key.key_hash):
@@ -115,3 +115,9 @@ async def check_subscription_or_free_tier(user: User) -> bool:
     if user.free_requests_used < user.free_requests_limit:
         return True
     return False
+
+
+async def require_admin(user: User = Depends(get_current_user)) -> User:
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user

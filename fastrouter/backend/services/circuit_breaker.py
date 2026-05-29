@@ -48,6 +48,8 @@ class CircuitBreaker:
         failure_count = await self._get_failure_count(provider)
         if failure_count >= self.failure_threshold:
             await self._set_state(provider, CircuitState.OPEN)
+            # Reset successes so stale counts don't auto-close on recovery
+            await self.redis.delete(f"cb:{provider}:successes")
 
     async def get_state(self, provider: str) -> CircuitState:
         return await self._get_state(provider)
@@ -67,7 +69,9 @@ class CircuitBreaker:
 
     async def _get_state(self, provider: str) -> CircuitState:
         val = await self.redis.get(f"cb:{provider}:state")
-        return CircuitState(val.decode()) if val else CircuitState.CLOSED
+        if val is None:
+            return CircuitState.CLOSED
+        return CircuitState(val.decode() if isinstance(val, bytes) else val)
 
     async def _set_state(self, provider: str, state: CircuitState):
         await self.redis.set(f"cb:{provider}:state", state.value)
@@ -92,7 +96,8 @@ class CircuitBreaker:
     async def _get_last_failure(self, provider: str) -> datetime | None:
         val = await self.redis.get(f"cb:{provider}:last_failure")
         if val:
-            return datetime.fromisoformat(val.decode())
+            text = val.decode() if isinstance(val, bytes) else val
+            return datetime.fromisoformat(text)
         return None
 
     async def _reset(self, provider: str):

@@ -6,8 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from backend.config import get_settings
-from backend.database import init_db, async_session
-from backend.services.routing import router as litellm_router
+from backend.database import init_db, async_session, run_migrations, seed_defaults, ensure_admin_users
+from backend.services.routing import router as litellm_router, load_model_map
 
 settings = get_settings()
 
@@ -16,7 +16,12 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     # Startup
     app.state.redis = await redis.from_url(settings.redis_url, decode_responses=True)
+    await run_migrations()
     await init_db()
+    async with async_session() as session:
+        await seed_defaults(session)
+        await ensure_admin_users(session)
+        await load_model_map(session)
     yield
     # Shutdown
     await litellm_router.close()
@@ -71,6 +76,7 @@ from backend.routes.proxy import router as proxy_router
 from backend.routes.billing import router as billing_router
 from backend.routes.webhooks import router as webhooks_router
 from backend.routes.analytics import router as analytics_router
+from backend.routes.admin import router as admin_router
 
 app.include_router(auth_router)
 app.include_router(keys_router)
@@ -79,3 +85,4 @@ app.include_router(proxy_router)
 app.include_router(billing_router)
 app.include_router(webhooks_router)
 app.include_router(analytics_router)
+app.include_router(admin_router)

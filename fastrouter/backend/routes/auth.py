@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, EmailStr
-from sqlalchemy import select
+from pydantic import BaseModel, EmailStr, Field
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import get_db
+from backend.config import get_settings
 from backend.middleware.auth import (
     hash_password,
     verify_password,
@@ -20,7 +21,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 class RegisterRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(min_length=8)
 
 
 class LoginRequest(BaseModel):
@@ -44,10 +45,16 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Email already registered")
 
+    settings = get_settings()
+    user_count = await db.execute(select(func.count(User.id)))
+    is_first_user = user_count.scalar() == 0
+    auto_admin = is_first_user and not settings.admin_emails
+
     user = User(
         email=req.email,
         password_hash=hash_password(req.password),
         subscription_status="inactive",
+        role="admin" if auto_admin else "user",
     )
     db.add(user)
     await db.commit()
@@ -59,7 +66,7 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
-        user={"id": str(user.id), "email": user.email, "subscription_status": user.subscription_status},
+        user={"id": str(user.id), "email": user.email, "subscription_status": user.subscription_status, "role": user.role},
     )
 
 
@@ -83,6 +90,7 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
             "subscription_status": user.subscription_status,
             "free_requests_used": user.free_requests_used,
             "free_requests_limit": user.free_requests_limit,
+            "role": user.role,
         },
     )
 
@@ -108,7 +116,7 @@ async def refresh(req: RefreshRequest, db: AsyncSession = Depends(get_db)):
     return TokenResponse(
         access_token=access_token,
         refresh_token=new_refresh_token,
-        user={"id": str(user.id), "email": user.email, "subscription_status": user.subscription_status},
+        user={"id": str(user.id), "email": user.email, "subscription_status": user.subscription_status, "role": user.role},
     )
 
 
@@ -117,6 +125,7 @@ async def get_me(user: User = Depends(get_current_user), db: AsyncSession = Depe
     return {
         "id": str(user.id),
         "email": user.email,
+        "role": user.role,
         "subscription_status": user.subscription_status,
         "free_requests_used": user.free_requests_used,
         "free_requests_limit": user.free_requests_limit,

@@ -35,7 +35,7 @@ export default function Login({ onLogin }) {
               <Form.Item field="email" label="Email" rules={[{ required: true, type: "email" }]}>
                 <Input placeholder="you@company.com" />
               </Form.Item>
-              <Form.Item field="password" label="Password" rules={[{ required: true, minLength: 6 }]}>
+              <Form.Item field="password" label="Password" rules={[{ required: true, minLength: 8 }]}>
                 <Input.Password placeholder="Password" />
               </Form.Item>
               <Form.Item>
@@ -50,7 +50,7 @@ export default function Login({ onLogin }) {
               <Form.Item field="email" label="Email" rules={[{ required: true, type: "email" }]}>
                 <Input placeholder="you@company.com" />
               </Form.Item>
-              <Form.Item field="password" label="Password" rules={[{ required: true, minLength: 6 }]}>
+              <Form.Item field="password" label="Password" rules={[{ required: true, minLength: 8 }]}>
                 <Input.Password placeholder="Password" />
               </Form.Item>
               <Form.Item>

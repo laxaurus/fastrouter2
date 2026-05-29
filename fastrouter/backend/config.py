@@ -30,6 +30,12 @@ class Settings(BaseSettings):
     # Free tier
     free_requests_limit: int = 1000
 
+    # LiteLLM config
+    litellm_config_path: str = "../fastrouter-oss/litellm/config.yaml"
+
+    # Admin
+    admin_emails: str = ""
+
     # App
     app_env: str = "development"
     debug: bool = True

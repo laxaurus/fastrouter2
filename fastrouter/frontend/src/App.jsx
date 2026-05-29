@@ -8,11 +8,20 @@ import Billing from "./pages/Billing";
 import Settings from "./pages/Settings";
 import Docs from "./pages/Docs";
 import Login from "./pages/Login";
+import AdminModels from "./pages/AdminModels";
+import AdminProviderKeys from "./pages/AdminProviderKeys";
+import AdminUsers from "./pages/AdminUsers";
+import AdminServices from "./pages/AdminServices";
 import { api } from "./lib/api";
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem("access_token");
   if (!token) return <Navigate to="/login" />;
+  return children;
+}
+
+function AdminRoute({ user, children }) {
+  if (user?.role !== "admin") return <Navigate to="/" />;
   return children;
 }
 
@@ -32,6 +41,10 @@ export default function App() {
     }
   }, []);
 
+  const handleLogout = () => {
+    setUser(null);
+  };
+
   if (loading) return <div style={{ padding: 40 }}>Loading...</div>;
 
   return (
@@ -41,7 +54,7 @@ export default function App() {
         path="/*"
         element={
           <ProtectedRoute>
-            <Layout user={user}>
+            <Layout user={user} onLogout={handleLogout}>
               <Routes>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/keys" element={<ApiKeys />} />
@@ -49,6 +62,10 @@ export default function App() {
                 <Route path="/billing" element={<Billing user={user} />} />
                 <Route path="/settings" element={<Settings user={user} />} />
                 <Route path="/docs" element={<Docs />} />
+                <Route path="/admin/models" element={<AdminRoute user={user}><AdminModels /></AdminRoute>} />
+                <Route path="/admin/keys" element={<AdminRoute user={user}><AdminProviderKeys /></AdminRoute>} />
+                <Route path="/admin/users" element={<AdminRoute user={user}><AdminUsers /></AdminRoute>} />
+                <Route path="/admin/services" element={<AdminRoute user={user}><AdminServices /></AdminRoute>} />
               </Routes>
             </Layout>
           </ProtectedRoute>

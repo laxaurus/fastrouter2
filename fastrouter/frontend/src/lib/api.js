@@ -53,6 +53,7 @@ export const api = {
   // API Keys
   listKeys: () => request("/keys"),
   createKey: (name) => request("/keys", { method: "POST", body: JSON.stringify({ name }) }),
+  getKey: (id) => request(`/keys/${id}`),
   deleteKey: (id) => request(`/keys/${id}`, { method: "DELETE" }),
 
   // Provider Keys
@@ -60,6 +61,7 @@ export const api = {
   addProviderKey: (provider, apiKey) =>
     request("/providers/keys", { method: "POST", body: JSON.stringify({ provider, api_key: apiKey }) }),
   deleteProviderKey: (id) => request(`/providers/keys/${id}`, { method: "DELETE" }),
+  testProviderKey: (id, model) => request(`/providers/keys/${id}/test${model ? `?model=${encodeURIComponent(model)}` : ""}`, { method: "POST" }),
 
   // Billing
   billingStatus: () => request("/billing/status"),
@@ -82,4 +84,29 @@ export const api = {
 
   // Health
   health: () => request("/health"),
+
+  // Admin - Models
+  adminListModels: () => request("/admin/models"),
+  adminCreateModel: (data) => request("/admin/models", { method: "POST", body: JSON.stringify(data) }),
+  adminUpdateModel: (id, data) => request(`/admin/models/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  adminDeleteModel: (id) => request(`/admin/models/${id}`, { method: "DELETE" }),
+  adminSyncModels: () => request("/admin/models/sync", { method: "POST" }),
+  adminImportModels: (models, conflictStrategy = "skip") =>
+    request("/admin/models/import", { method: "POST", body: JSON.stringify({ models, conflict_strategy: conflictStrategy }) }),
+
+  // Admin - Provider Keys
+  adminListProviderKeys: () => request("/admin/provider-keys"),
+  adminGetProviderKey: (id) => request(`/admin/provider-keys/${id}`),
+
+  // Admin - Users
+  adminListUsers: () => request("/admin/users"),
+  adminUpdateUserRole: (userId, role) => request(`/admin/users/${userId}/role`, { method: "PATCH", body: JSON.stringify({ role }) }),
+
+  // Admin - Services
+  adminServicesStatus: () => request("/admin/services/status"),
+  adminRestartLitellm: () => request("/admin/services/litellm/restart", { method: "POST" }),
+  adminRestartBackend: () => request("/admin/services/backend/restart", { method: "POST" }),
+
+  // Admin - Stats
+  adminStats: () => request("/admin/stats"),
 };

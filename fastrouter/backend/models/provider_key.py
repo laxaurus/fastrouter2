@@ -16,6 +16,7 @@ class ProviderKey(Base):
     provider: Mapped[str] = mapped_column(String(50), nullable=False)
     api_key_encrypted: Mapped[str] = mapped_column(String, nullable=False)
     key_prefix: Mapped[str] = mapped_column(String(8), nullable=False)
+    lite_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

@@ -45,6 +45,7 @@ services:
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_}
       STRIPE_PRICE_ID: ${STRIPE_PRICE_ID:-price_}
+      LITELLM_CONFIG_PATH: /app/litellm_config/config.yaml
     ports:
       - "8000:8000"
     depends_on:
@@ -53,6 +54,8 @@ services:
       - litellm
     volumes:
       - ./backend:/app/backend
+      - ../fastrouter-oss/litellm:/app/litellm_config
+      - /var/run/docker.sock:/var/run/docker.sock
     command: uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 
 volumes:

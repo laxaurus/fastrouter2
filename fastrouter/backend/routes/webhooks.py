@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request, Depends
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import get_db
@@ -17,5 +18,8 @@ async def stripe_webhook(
 
     stripe_service = StripeService()
     result = await stripe_service.handle_webhook(payload, signature, db)
+
+    if "error" in result:
+        return JSONResponse(status_code=400, content=result)
 
     return result

@@ -1,3 +1,4 @@
+import json
 import time
 from datetime import datetime, timezone
 
@@ -56,6 +57,10 @@ async def chat_completions(
     cache_key = generate_cache_key(messages, model)
     cached = await cache.get(str(user.id), cache_key)
     if cached:
+        # Increment free tier counter
+        if user.subscription_status != "active":
+            user.free_requests_used += 1
+
         # Log cached usage
         usage_log = UsageLog(
             user_id=user.id,
@@ -82,91 +87,135 @@ async def chat_completions(
             "x_cached": True,
         }
 
+    # Resolve provider once for consistent naming
+    provider_name = litellm_router.resolve_provider(model)
+
     # Circuit breaker check
     try:
-        await breaker.before_call(model)
+        await breaker.before_call(provider_name)
     except CircuitOpenError:
         # Try failover to next provider
         fallback = _get_fallback_model(model)
         if fallback:
             model = fallback
-            await breaker.before_call(model)
+            provider_name = litellm_router.resolve_provider(model)
+            await breaker.before_call(provider_name)
 
     try:
         if stream:
-            # Streaming not cached
-            pass
-        else:
-            result = await litellm_router.route(
-                model=model,
-                messages=messages,
-                user_id=str(user.id),
-                db=db,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                stop=stop,
-            )
-
-            # Cache successful response
-            await cache.set(str(user.id), cache_key, result)
-
             # Increment free tier counter
             if user.subscription_status != "active":
                 user.free_requests_used += 1
 
-            # Log usage
+            # Log estimated usage for streaming (BUG-008 fix)
             usage_log = UsageLog(
                 user_id=user.id,
-                provider=result["provider"],
-                model=result["model"],
-                prompt_tokens=result["usage"]["prompt_tokens"],
-                completion_tokens=result["usage"]["completion_tokens"],
-                cost_usd=result.get("cost_usd", 0),
-                latency_ms=result["latency_ms"],
+                provider=provider_name,
+                model=model,
+                prompt_tokens=sum(len(json.dumps(m, ensure_ascii=False)) // 4 for m in messages),
+                completion_tokens=0,
+                cost_usd=0,
+                latency_ms=0,
                 cached=False,
                 agent_type=agent_type,
             )
             db.add(usage_log)
             await db.commit()
 
-            await breaker.on_success(result["provider"])
+            return StreamingResponse(
+                litellm_router.route_stream(
+                    model=model,
+                    messages=messages,
+                    user_id=str(user.id),
+                    db=db,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    stop=stop,
+                ),
+                media_type="text/event-stream",
+                headers={
+                    "x-stream-provider": provider_name,
+                    "x-agent-type": agent_type,
+                },
+            )
 
-            return {
-                "id": f"chatcmpl-{int(time.time())}",
-                "object": "chat.completion",
-                "created": int(time.time()),
-                "model": result["model"],
-                "choices": result["choices"],
-                "usage": result["usage"],
-                "x_provider": result["provider"],
-                "x_cached": False,
-                "x_agent_type": agent_type,
-            }
+        result = await litellm_router.route(
+            model=model,
+            messages=messages,
+            user_id=str(user.id),
+            db=db,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            stop=stop,
+        )
+
+        # Cache successful response
+        await cache.set(str(user.id), cache_key, result)
+
+        # Increment free tier counter
+        if user.subscription_status != "active":
+            user.free_requests_used += 1
+
+        # Log usage
+        usage_log = UsageLog(
+            user_id=user.id,
+            provider=result["provider"],
+            model=result["model"],
+            prompt_tokens=result["usage"]["prompt_tokens"],
+            completion_tokens=result["usage"]["completion_tokens"],
+            cost_usd=result.get("cost_usd", 0),
+            latency_ms=result["latency_ms"],
+            cached=False,
+            agent_type=agent_type,
+        )
+        db.add(usage_log)
+        await db.commit()
+
+        await breaker.on_success(result["provider"])
+
+        return {
+            "id": f"chatcmpl-{int(time.time())}",
+            "object": "chat.completion",
+            "created": int(time.time()),
+            "model": result["model"],
+            "choices": result["choices"],
+            "usage": result["usage"],
+            "x_provider": result["provider"],
+            "x_cached": False,
+            "x_agent_type": agent_type,
+        }
 
     except Exception as e:
-        # Determine provider for circuit breaker
-        provider = "deepseek" if "deepseek" in model.lower() else "qwen"
-        await breaker.on_failure(provider)
+        await breaker.on_failure(provider_name)
         raise HTTPException(status_code=502, detail=f"Provider error: {str(e)}")
 
 
 def _get_fallback_model(model: str) -> str | None:
-    if "deepseek" in model.lower():
-        return "qwen-plus"
-    if "qwen" in model.lower():
-        return "deepseek-chat"
+    """Find a fallback model from a different provider using the model map cache."""
+    from backend.services.routing import get_model_map, get_model_providers
+
+    model_map = get_model_map()
+    providers = get_model_providers()
+
+    current_provider = model_map.get(model.lower(), "")
+    for m_name, m_provider in model_map.items():
+        if m_provider != current_provider and m_name != model:
+            return m_name
     return None
 
 
 @router.get("/models", response_model=None)
-async def list_models():
+async def list_models(db: AsyncSession = Depends(get_db)):
+    from backend.models.provider_model import ProviderModel
+
+    result = await db.execute(
+        select(ProviderModel).where(ProviderModel.is_active == True).order_by(ProviderModel.provider, ProviderModel.model_name)
+    )
+    models = result.scalars().all()
     return {
         "object": "list",
         "data": [
-            {"id": "deepseek-chat", "object": "model", "owned_by": "deepseek"},
-            {"id": "deepseek-reasoner", "object": "model", "owned_by": "deepseek"},
-            {"id": "qwen-plus", "object": "model", "owned_by": "qwen"},
-            {"id": "qwen-max", "object": "model", "owned_by": "qwen"},
-            {"id": "qwen-turbo", "object": "model", "owned_by": "qwen"},
+            {"id": m.model_name, "object": "model", "owned_by": m.provider}
+            for m in models
         ],
     }

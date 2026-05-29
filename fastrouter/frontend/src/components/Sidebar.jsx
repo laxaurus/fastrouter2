@@ -7,6 +7,9 @@ import {
   IconSafe,
   IconSettings,
   IconBook,
+  IconUserGroup,
+  IconStorage,
+  IconTool,
 } from "@arco-design/web-react/icon";
 
 const menuItems = [
@@ -18,9 +21,18 @@ const menuItems = [
   { key: "/docs", icon: <IconBook />, label: "Docs" },
 ];
 
-export default function Sidebar() {
+const adminItems = [
+  { key: "/admin/models", icon: <IconStorage />, label: "Models" },
+  { key: "/admin/keys", icon: <IconCloud />, label: "Provider Keys" },
+  { key: "/admin/users", icon: <IconUserGroup />, label: "Users" },
+  { key: "/admin/services", icon: <IconTool />, label: "Services" },
+];
+
+export default function Sidebar({ user }) {
   const navigate = useNavigate();
   const location = useLocation();
+
+  const isAdmin = user?.role === "admin";
 
   return (
     <Menu
@@ -33,6 +45,27 @@ export default function Sidebar() {
           {item.icon} {item.label}
         </Menu.Item>
       ))}
+      {isAdmin && (
+        <>
+          <div
+            style={{
+              padding: "8px 16px 4px",
+              fontSize: 11,
+              fontWeight: 600,
+              color: "var(--color-text-3)",
+              textTransform: "uppercase",
+              letterSpacing: 1,
+            }}
+          >
+            Admin
+          </div>
+          {adminItems.map((item) => (
+            <Menu.Item key={item.key}>
+              {item.icon} {item.label}
+            </Menu.Item>
+          ))}
+        </>
+      )}
     </Menu>
   );
 }
