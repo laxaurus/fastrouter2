@@ -32,6 +32,8 @@ class ModelCreate(BaseModel):
     provider: str = Field(..., min_length=1, max_length=50)
     api_base: str = Field(..., min_length=1)
     description: str | None = None
+    input_cost_per_token: float | None = None
+    output_cost_per_token: float | None = None
     is_active: bool = True
 
 
@@ -40,6 +42,8 @@ class ModelUpdate(BaseModel):
     provider: str | None = None
     api_base: str | None = None
     description: str | None = None
+    input_cost_per_token: float | None = None
+    output_cost_per_token: float | None = None
     is_active: bool | None = None
 
 
@@ -49,6 +53,8 @@ class ModelResponse(BaseModel):
     provider: str
     api_base: str
     description: str | None
+    input_cost_per_token: float | None
+    output_cost_per_token: float | None
     is_active: bool
     created_at: str
     updated_at: str
@@ -96,6 +102,8 @@ class ModelImportRow(BaseModel):
     provider: str
     api_base: str
     description: str | None = None
+    input_cost_per_token: float | None = None
+    output_cost_per_token: float | None = None
     is_active: bool = True
 
 
@@ -135,6 +143,8 @@ def _model_to_response(m: ProviderModel) -> ModelResponse:
         provider=m.provider,
         api_base=m.api_base,
         description=m.description,
+        input_cost_per_token=m.input_cost_per_token,
+        output_cost_per_token=m.output_cost_per_token,
         is_active=m.is_active,
         created_at=m.created_at.isoformat() if m.created_at else "",
         updated_at=m.updated_at.isoformat() if m.updated_at else "",
@@ -173,6 +183,8 @@ def _generate_litellm_config(models: list[ProviderModel]) -> str:
                     "model": f"openai/{m.model_name}",
                     "api_base": m.api_base,
                     "api_key": f"os.environ/{m.provider.upper()}_API_KEY",
+                    **({"input_cost_per_token": m.input_cost_per_token} if m.input_cost_per_token is not None else {}),
+                    **({"output_cost_per_token": m.output_cost_per_token} if m.output_cost_per_token is not None else {}),
                 },
             }
             for m in models

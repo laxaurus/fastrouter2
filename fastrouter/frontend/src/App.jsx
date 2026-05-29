@@ -8,6 +8,7 @@ import Billing from "./pages/Billing";
 import Settings from "./pages/Settings";
 import Docs from "./pages/Docs";
 import Login from "./pages/Login";
+import Landing from "./pages/Landing";
 import AdminModels from "./pages/AdminModels";
 import AdminProviderKeys from "./pages/AdminProviderKeys";
 import AdminUsers from "./pages/AdminUsers";
@@ -50,18 +51,22 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login onLogin={setUser} />} />
+      <Route path="/docs" element={<Docs />} />
+      <Route path="/" element={user ? (
+        <Layout user={user} onLogout={handleLogout}><Dashboard /></Layout>
+      ) : (
+        <Landing />
+      )} />
       <Route
         path="/*"
         element={
           <ProtectedRoute>
             <Layout user={user} onLogout={handleLogout}>
               <Routes>
-                <Route path="/" element={<Dashboard />} />
                 <Route path="/keys" element={<ApiKeys />} />
                 <Route path="/providers" element={<ProviderKeys />} />
                 <Route path="/billing" element={<Billing user={user} />} />
                 <Route path="/settings" element={<Settings user={user} />} />
-                <Route path="/docs" element={<Docs />} />
                 <Route path="/admin/models" element={<AdminRoute user={user}><AdminModels /></AdminRoute>} />
                 <Route path="/admin/keys" element={<AdminRoute user={user}><AdminProviderKeys /></AdminRoute>} />
                 <Route path="/admin/users" element={<AdminRoute user={user}><AdminUsers /></AdminRoute>} />

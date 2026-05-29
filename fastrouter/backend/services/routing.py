@@ -16,11 +16,12 @@ logger = logging.getLogger(__name__)
 
 _model_map: dict[str, str] = {}
 _model_providers: list[str] = []
+_model_costs: dict[str, dict[str, float | None]] = {}
 
 
 async def load_model_map(db: AsyncSession) -> None:
-    """Load model→provider mappings from DB into an in-memory cache."""
-    global _model_map, _model_providers
+    """Load model→provider mappings and per-token costs from DB into an in-memory cache."""
+    global _model_map, _model_providers, _model_costs
     from backend.models.provider_model import ProviderModel
 
     result = await db.execute(
@@ -29,6 +30,13 @@ async def load_model_map(db: AsyncSession) -> None:
     models = result.scalars().all()
     _model_map = {m.model_name.lower(): m.provider for m in models}
     _model_providers = sorted(set(m.provider for m in models))
+    _model_costs = {
+        m.model_name.lower(): {
+            "input": m.input_cost_per_token,
+            "output": m.output_cost_per_token,
+        }
+        for m in models
+    }
 
 
 def get_model_map() -> dict[str, str]:
@@ -39,6 +47,14 @@ def get_model_map() -> dict[str, str]:
 def get_model_providers() -> list[str]:
     """Return the list of known providers from the cache."""
     return list(_model_providers)
+
+
+def compute_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
+    """Compute cost from cached per-token pricing. Returns 0 if no pricing configured."""
+    costs = _model_costs.get(model.lower())
+    if not costs or costs["input"] is None or costs["output"] is None:
+        return 0.0
+    return round(prompt_tokens * costs["input"] + completion_tokens * costs["output"], 8)
 
 
 class LiteLLMRouter:

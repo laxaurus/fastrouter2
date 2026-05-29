@@ -14,6 +14,8 @@ class ProviderModel(Base):
     provider: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     api_base: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    input_cost_per_token: Mapped[float | None] = mapped_column(default=None, nullable=True)
+    output_cost_per_token: Mapped[float | None] = mapped_column(default=None, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

@@ -7,11 +7,11 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from backend.database import get_db
+from backend.database import get_db, async_session
 from backend.middleware.auth import get_current_user, check_subscription_or_free_tier
 from backend.models.user import User
 from backend.models.usage import UsageLog
-from backend.services.routing import router as litellm_router, generate_cache_key
+from backend.services.routing import router as litellm_router, generate_cache_key, compute_cost
 from backend.services.agent_detector import AgentDetector
 from backend.services.cache import PromptCache
 from backend.services.circuit_breaker import CircuitBreaker, CircuitOpenError
@@ -19,6 +19,42 @@ from backend.services.circuit_breaker import CircuitBreaker, CircuitOpenError
 router = APIRouter(prefix="/v1", tags=["proxy"])
 
 agent_detector = AgentDetector()
+
+
+async def _tracked_stream(stream_gen, usage_log_id: int, model: str, start_time: float):
+    """Wrap SSE byte stream, capture real usage from final chunk, and update UsageLog."""
+    usage_data = None
+    try:
+        async for chunk in stream_gen:
+            yield chunk
+            text = chunk.decode("utf-8", errors="replace") if isinstance(chunk, bytes) else chunk
+            for line in text.split("\n"):
+                if line.startswith("data: ") and line != "data: [DONE]":
+                    try:
+                        data = json.loads(line[6:])
+                        if data.get("usage"):
+                            usage_data = data["usage"]
+                    except (json.JSONDecodeError, KeyError):
+                        pass
+    finally:
+        if usage_data:
+            async with async_session() as session:
+                result = await session.execute(
+                    select(UsageLog).where(UsageLog.id == usage_log_id)
+                )
+                log = result.scalar_one_or_none()
+                if log:
+                    log.prompt_tokens = usage_data.get("prompt_tokens", 0)
+                    log.completion_tokens = usage_data.get("completion_tokens", 0)
+                    log.latency_ms = int((time.time() - start_time) * 1000)
+                    cost = compute_cost(
+                        model,
+                        usage_data.get("prompt_tokens", 0),
+                        usage_data.get("completion_tokens", 0),
+                    )
+                    if cost > 0:
+                        log.cost_usd = cost
+                    await session.commit()
 
 
 async def get_redis(request: Request):
@@ -107,12 +143,13 @@ async def chat_completions(
             if user.subscription_status != "active":
                 user.free_requests_used += 1
 
-            # Log estimated usage for streaming (BUG-008 fix)
+            # Create preliminary usage log — updated after stream completes
+            start_time = time.time()
             usage_log = UsageLog(
                 user_id=user.id,
                 provider=provider_name,
                 model=model,
-                prompt_tokens=sum(len(json.dumps(m, ensure_ascii=False)) // 4 for m in messages),
+                prompt_tokens=0,
                 completion_tokens=0,
                 cost_usd=0,
                 latency_ms=0,
@@ -121,16 +158,22 @@ async def chat_completions(
             )
             db.add(usage_log)
             await db.commit()
+            usage_log_id = usage_log.id
 
             return StreamingResponse(
-                litellm_router.route_stream(
-                    model=model,
-                    messages=messages,
-                    user_id=str(user.id),
-                    db=db,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    stop=stop,
+                _tracked_stream(
+                    litellm_router.route_stream(
+                        model=model,
+                        messages=messages,
+                        user_id=str(user.id),
+                        db=db,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        stop=stop,
+                    ),
+                    usage_log_id,
+                    model,
+                    start_time,
                 ),
                 media_type="text/event-stream",
                 headers={
@@ -156,6 +199,15 @@ async def chat_completions(
         if user.subscription_status != "active":
             user.free_requests_used += 1
 
+        # Compute cost from model pricing if LiteLLM didn't provide it
+        cost_usd = result.get("cost_usd", 0)
+        if cost_usd == 0:
+            cost_usd = compute_cost(
+                model,
+                result["usage"]["prompt_tokens"],
+                result["usage"]["completion_tokens"],
+            )
+
         # Log usage
         usage_log = UsageLog(
             user_id=user.id,
@@ -163,7 +215,7 @@ async def chat_completions(
             model=result["model"],
             prompt_tokens=result["usage"]["prompt_tokens"],
             completion_tokens=result["usage"]["completion_tokens"],
-            cost_usd=result.get("cost_usd", 0),
+            cost_usd=cost_usd,
             latency_ms=result["latency_ms"],
             cached=False,
             agent_type=agent_type,

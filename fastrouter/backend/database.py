@@ -46,17 +46,36 @@ async def run_migrations():
                 END IF;
             END $$;
         """))
+        await conn.execute(text("""
+            DO $$ BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name='provider_models' AND column_name='input_cost_per_token'
+                ) THEN
+                    ALTER TABLE provider_models ADD COLUMN input_cost_per_token DOUBLE PRECISION;
+                    ALTER TABLE provider_models ADD COLUMN output_cost_per_token DOUBLE PRECISION;
+                END IF;
+            END $$;
+        """))
 
 
 SEED_MODELS = [
-    {"model_name": "deepseek-chat", "provider": "deepseek", "api_base": "https://api.deepseek.com/v1"},
-    {"model_name": "deepseek-reasoner", "provider": "deepseek", "api_base": "https://api.deepseek.com/v1"},
-    {"model_name": "qwen-plus", "provider": "qwen", "api_base": "https://dashscope.aliyuncs.com/compatible-mode/v1"},
-    {"model_name": "qwen-max", "provider": "qwen", "api_base": "https://dashscope.aliyuncs.com/compatible-mode/v1"},
-    {"model_name": "qwen-turbo", "provider": "qwen", "api_base": "https://dashscope.aliyuncs.com/compatible-mode/v1"},
-    {"model_name": "kimi-latest", "provider": "kimi", "api_base": "https://api.moonshot.cn/v1"},
-    {"model_name": "glm-4", "provider": "glm", "api_base": "https://open.bigmodel.cn/api/paas/v4"},
-    {"model_name": "glm-4-flash", "provider": "glm", "api_base": "https://open.bigmodel.cn/api/paas/v4"},
+    {"model_name": "deepseek-chat", "provider": "deepseek", "api_base": "https://api.deepseek.com/v1",
+     "input_cost_per_token": 0.00000014, "output_cost_per_token": 0.00000028},
+    {"model_name": "deepseek-reasoner", "provider": "deepseek", "api_base": "https://api.deepseek.com/v1",
+     "input_cost_per_token": 0.00000055, "output_cost_per_token": 0.00000219},
+    {"model_name": "qwen-plus", "provider": "qwen", "api_base": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+     "input_cost_per_token": 0.00000080, "output_cost_per_token": 0.00000200},
+    {"model_name": "qwen-max", "provider": "qwen", "api_base": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+     "input_cost_per_token": 0.00000240, "output_cost_per_token": 0.00000960},
+    {"model_name": "qwen-turbo", "provider": "qwen", "api_base": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+     "input_cost_per_token": 0.00000030, "output_cost_per_token": 0.00000120},
+    {"model_name": "kimi-latest", "provider": "kimi", "api_base": "https://api.moonshot.cn/v1",
+     "input_cost_per_token": 0.00000020, "output_cost_per_token": 0.00000060},
+    {"model_name": "glm-4", "provider": "glm", "api_base": "https://open.bigmodel.cn/api/paas/v4",
+     "input_cost_per_token": 0.00000010, "output_cost_per_token": 0.00000010},
+    {"model_name": "glm-4-flash", "provider": "glm", "api_base": "https://open.bigmodel.cn/api/paas/v4",
+     "input_cost_per_token": 0.000000014, "output_cost_per_token": 0.000000014},
 ]
 
 

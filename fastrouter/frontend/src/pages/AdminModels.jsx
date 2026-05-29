@@ -13,6 +13,8 @@ const emptyModel = {
   provider: "",
   api_base: "",
   description: "",
+  input_cost_per_token: "",
+  output_cost_per_token: "",
   is_active: true,
 };
 
@@ -53,6 +55,8 @@ export default function AdminModels() {
       provider: model.provider,
       api_base: model.api_base,
       description: model.description || "",
+      input_cost_per_token: model.input_cost_per_token ?? "",
+      output_cost_per_token: model.output_cost_per_token ?? "",
       is_active: model.is_active,
     });
     setShowModal(true);
@@ -60,11 +64,16 @@ export default function AdminModels() {
 
   const handleSave = async () => {
     try {
+      const payload = {
+        ...form,
+        input_cost_per_token: form.input_cost_per_token === "" ? null : form.input_cost_per_token,
+        output_cost_per_token: form.output_cost_per_token === "" ? null : form.output_cost_per_token,
+      };
       if (editing) {
-        await api.adminUpdateModel(editing, form);
+        await api.adminUpdateModel(editing, payload);
         Message.success("Model updated");
       } else {
-        await api.adminCreateModel(form);
+        await api.adminCreateModel(payload);
         Message.success("Model created");
       }
       setShowModal(false);
@@ -174,6 +183,16 @@ export default function AdminModels() {
     { title: "Provider", dataIndex: "provider", render: (v) => <Tag>{v}</Tag> },
     { title: "API Base", dataIndex: "api_base", render: (v) => <span style={{ fontSize: 12 }}>{v}</span> },
     {
+      title: "Input $/token",
+      dataIndex: "input_cost_per_token",
+      render: (v) => v != null ? <span style={{ fontSize: 12, fontFamily: "monospace" }}>${v}</span> : <span style={{ color: "var(--color-text-3)" }}>-</span>,
+    },
+    {
+      title: "Output $/token",
+      dataIndex: "output_cost_per_token",
+      render: (v) => v != null ? <span style={{ fontSize: 12, fontFamily: "monospace" }}>${v}</span> : <span style={{ color: "var(--color-text-3)" }}>-</span>,
+    },
+    {
       title: "Active",
       dataIndex: "is_active",
       render: (v) => (v ? <Tag color="green">Yes</Tag> : <Tag color="red">No</Tag>),
@@ -241,6 +260,16 @@ export default function AdminModels() {
             placeholder="Description (optional)"
             value={form.description}
             onChange={(v) => updateForm("description", v)}
+          />
+          <Input
+            placeholder="Input cost per token (e.g. 0.00000014)"
+            value={form.input_cost_per_token}
+            onChange={(v) => updateForm("input_cost_per_token", v ? parseFloat(v) || "" : "")}
+          />
+          <Input
+            placeholder="Output cost per token (e.g. 0.00000028)"
+            value={form.output_cost_per_token}
+            onChange={(v) => updateForm("output_cost_per_token", v ? parseFloat(v) || "" : "")}
           />
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Switch checked={form.is_active} onChange={(v) => updateForm("is_active", v)} />
