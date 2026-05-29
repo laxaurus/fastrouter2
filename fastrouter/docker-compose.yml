@@ -26,6 +26,7 @@ services:
       LITELLM_MASTER_KEY: sk-master-key-fastrouter
       UI_USERNAME: admin
       UI_PASSWORD: fastrouter-admin
+      STORE_MODEL_IN_DB: "True"
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
       QWEN_API_KEY: ${QWEN_API_KEY}
     volumes:

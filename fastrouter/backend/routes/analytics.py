@@ -38,6 +38,8 @@ async def overview(
     avg_cost_per_request = 0.002
     estimated_savings = round(cached_count * avg_cost_per_request, 2)
 
+    free_remaining = max(0, user.free_requests_limit - user.free_requests_used)
+
     return {
         "total_requests": total_requests,
         "total_tokens": int(total_tokens),
@@ -45,6 +47,7 @@ async def overview(
         "estimated_savings": estimated_savings,
         "free_requests_used": user.free_requests_used,
         "free_requests_limit": user.free_requests_limit,
+        "free_requests_remaining": free_remaining,
     }
 
 
@@ -129,8 +132,32 @@ async def providers(
 
 
 @router.get("/health", response_model=None)
-async def provider_health(request: Request):
+async def provider_health(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    from backend.models.provider_model import ProviderModel
+
     redis_client = request.app.state.redis
     breaker = CircuitBreaker(redis_client)
     health_data = await breaker.get_health()
-    return {"providers": health_data}
+    cb_providers = {h["provider"]: h for h in health_data}
+
+    # Get all active providers from DB
+    result = await db.execute(
+        select(ProviderModel.provider).where(ProviderModel.is_active == True).distinct()
+    )
+    all_providers = sorted(row[0] for row in result)
+
+    providers = []
+    for prov in all_providers:
+        if prov in cb_providers:
+            providers.append(cb_providers[prov])
+        else:
+            providers.append({
+                "provider": prov,
+                "state": "unknown",
+                "failure_count": 0,
+            })
+
+    return {"providers": providers}

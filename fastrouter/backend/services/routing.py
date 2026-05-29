@@ -27,7 +27,7 @@ async def load_model_map(db: AsyncSession) -> None:
         select(ProviderModel).where(ProviderModel.is_active == True)
     )
     models = result.scalars().all()
-    _model_map = {m.model_name: m.provider for m in models}
+    _model_map = {m.model_name.lower(): m.provider for m in models}
     _model_providers = sorted(set(m.provider for m in models))
 
 

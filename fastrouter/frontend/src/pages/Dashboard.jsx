@@ -11,6 +11,7 @@ export default function Dashboard() {
   const [overview, setOverview] = useState(null);
   const [usage, setUsage] = useState([]);
   const [health, setHealth] = useState([]);
+  const [providerStats, setProviderStats] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -18,11 +19,13 @@ export default function Dashboard() {
       api.analyticsOverview(),
       api.analyticsUsage(14),
       api.analyticsHealth(),
+      api.analyticsProviders(),
     ])
-      .then(([ov, us, hp]) => {
+      .then(([ov, us, hp, ps]) => {
         setOverview(ov);
         setUsage(us.data || []);
         setHealth(hp.providers || []);
+        setProviderStats(ps.data || []);
       })
       .catch((e) => Message.error(e.message))
       .finally(() => setLoading(false));
@@ -112,6 +115,26 @@ export default function Dashboard() {
       </Row>
 
       <Row gutter={16}>
+        <Col span={12}>
+          <Card title="Provider Performance (30d)">
+            <Table
+              data={providerStats}
+              columns={[
+                { title: "Provider", dataIndex: "provider", render: (v) => <Tag color="arcoblue">{v}</Tag> },
+                { title: "Requests", dataIndex: "requests", render: (v) => v?.toLocaleString() || "0" },
+                { title: "Tokens", dataIndex: "total_tokens", render: (v) => Math.round((v || 0) / 1000).toLocaleString() + "K" },
+                { title: "Avg Latency", dataIndex: "avg_latency_ms", render: (v) => Math.round(v || 0) + "ms" },
+                { title: "Cached", dataIndex: "cached_count", render: (v) => v || 0 },
+              ]}
+              pagination={false}
+              rowKey="provider"
+              noDataElement={<div style={{ padding: 24, textAlign: "center", color: "var(--color-text-3)" }}>No usage data yet</div>}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      <Row gutter={16} style={{ marginTop: 16 }}>
         <Col span={12}>
           <Card title="Provider Health">
             <Table

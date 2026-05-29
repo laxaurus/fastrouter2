@@ -149,7 +149,12 @@ async def _provider_names(db: AsyncSession) -> list[str]:
 
 
 def _generate_litellm_config(models: list[ProviderModel]) -> str:
-    """Generate LiteLLM config.yaml from provider_models table."""
+    """Generate LiteLLM config.yaml from provider_models table.
+
+    Models are loaded from config.yaml at startup. Since STORE_MODEL_IN_DB=True,
+    LiteLLM also persists them to its internal DB, making them available via
+    read APIs (/model/info, /v1/models) without a restart.
+    """
     providers = sorted(set(m.provider for m in models))
     fallback_pairs = []
     if len(providers) >= 2:
@@ -174,6 +179,7 @@ def _generate_litellm_config(models: list[ProviderModel]) -> str:
         ],
         "general_settings": {
             "master_key": "os.environ/LITELLM_MASTER_KEY",
+            "store_model_in_db": True,
         },
         "litellm_settings": {
             "drop_params": True,
@@ -283,7 +289,11 @@ async def admin_sync_models(
     user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Regenerate LiteLLM config.yaml from the provider_models table."""
+    """Regenerate LiteLLM config.yaml from the provider_models table.
+
+    Models are loaded from config at LiteLLM startup. With STORE_MODEL_IN_DB
+    enabled, LiteLLM persists them to its internal DB automatically on restart.
+    """
     result = await db.execute(
         select(ProviderModel).where(ProviderModel.is_active == True).order_by(ProviderModel.provider)
     )
