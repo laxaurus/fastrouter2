@@ -117,7 +117,7 @@ class ModelImportRequest(BaseModel):
 async def _sync_virtual_keys_for_provider(provider: str, db: AsyncSession) -> None:
     """Re-sync all LiteLLM virtual keys for a provider after model changes."""
     from backend.services.lite_key_manager import get_key_manager
-    from backend.services.routing import get_model_map
+    from backend.services.routing import get_provider_models
 
     result = await db.execute(
         select(ProviderKey).where(
@@ -129,8 +129,7 @@ async def _sync_virtual_keys_for_provider(provider: str, db: AsyncSession) -> No
     if not provider_keys:
         return
 
-    model_map = get_model_map()
-    models_for_provider = [m for m, p in model_map.items() if p == provider]
+    models_for_provider = get_provider_models(provider)
     key_mgr = get_key_manager()
     for pk in provider_keys:
         await key_mgr.update_key_models(pk.lite_key, models_for_provider)

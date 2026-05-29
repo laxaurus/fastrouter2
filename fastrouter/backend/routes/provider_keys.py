@@ -82,7 +82,7 @@ async def add_provider_key(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    from backend.services.routing import get_model_providers, get_model_map
+    from backend.services.routing import get_model_providers, get_provider_models
 
     supported = get_model_providers()
     if req.provider not in supported:
@@ -104,9 +104,8 @@ async def add_provider_key(
     await db.commit()
     await db.refresh(provider_key)
 
-    # Collect models for this provider from the cache
-    model_map = get_model_map()
-    provider_models = [m for m, p in model_map.items() if p == req.provider]
+    # Collect models for this provider from the cache (original case for LiteLLM)
+    provider_models = get_provider_models(req.provider)
 
     # Sync to LiteLLM virtual key
     key_mgr = get_key_manager()

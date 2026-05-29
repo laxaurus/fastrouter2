@@ -64,10 +64,15 @@ export default function AdminModels() {
 
   const handleSave = async () => {
     try {
+      const toFloat = (v) => {
+        if (v === "" || v === null || v === undefined) return null;
+        const n = parseFloat(v);
+        return isNaN(n) ? null : n;
+      };
       const payload = {
         ...form,
-        input_cost_per_token: form.input_cost_per_token === "" ? null : form.input_cost_per_token,
-        output_cost_per_token: form.output_cost_per_token === "" ? null : form.output_cost_per_token,
+        input_cost_per_token: toFloat(form.input_cost_per_token),
+        output_cost_per_token: toFloat(form.output_cost_per_token),
       };
       if (editing) {
         await api.adminUpdateModel(editing, payload);
@@ -264,12 +269,12 @@ export default function AdminModels() {
           <Input
             placeholder="Input cost per token (e.g. 0.00000014)"
             value={form.input_cost_per_token}
-            onChange={(v) => updateForm("input_cost_per_token", v ? parseFloat(v) || "" : "")}
+            onChange={(v) => updateForm("input_cost_per_token", v)}
           />
           <Input
             placeholder="Output cost per token (e.g. 0.00000028)"
             value={form.output_cost_per_token}
-            onChange={(v) => updateForm("output_cost_per_token", v ? parseFloat(v) || "" : "")}
+            onChange={(v) => updateForm("output_cost_per_token", v)}
           />
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Switch checked={form.is_active} onChange={(v) => updateForm("is_active", v)} />

@@ -17,11 +17,12 @@ logger = logging.getLogger(__name__)
 _model_map: dict[str, str] = {}
 _model_providers: list[str] = []
 _model_costs: dict[str, dict[str, float | None]] = {}
+_provider_models: dict[str, list[str]] = {}
 
 
 async def load_model_map(db: AsyncSession) -> None:
     """Load model→provider mappings and per-token costs from DB into an in-memory cache."""
-    global _model_map, _model_providers, _model_costs
+    global _model_map, _model_providers, _model_costs, _provider_models
     from backend.models.provider_model import ProviderModel
 
     result = await db.execute(
@@ -37,6 +38,9 @@ async def load_model_map(db: AsyncSession) -> None:
         }
         for m in models
     }
+    _provider_models = {}
+    for m in models:
+        _provider_models.setdefault(m.provider, []).append(m.model_name)
 
 
 def get_model_map() -> dict[str, str]:
@@ -47,6 +51,11 @@ def get_model_map() -> dict[str, str]:
 def get_model_providers() -> list[str]:
     """Return the list of known providers from the cache."""
     return list(_model_providers)
+
+
+def get_provider_models(provider: str) -> list[str]:
+    """Return the original-case model names for a provider (for LiteLLM virtual key access)."""
+    return list(_provider_models.get(provider, []))
 
 
 def compute_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
